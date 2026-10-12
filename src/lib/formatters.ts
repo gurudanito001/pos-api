@@ -82,10 +82,11 @@ export function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-let receiptCounter = Math.floor(Math.random() * 400) + 100;
+let receiptSeq = 1;
 export function generateReceiptNumber(): string {
-  receiptCounter += 1;
-  return `#RCP-${receiptCounter}`;
+  const timeSuffix = Date.now().toString().slice(-4);
+  receiptSeq = (receiptSeq + 1) % 999;
+  return `#RCP-${timeSuffix}${receiptSeq}`;
 }
 
 export function buildReceiptShareMessage(
