@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  phone              String   @unique
+  tier               String   @default("trader")
+  language           String   @default("en")
+  biometricPublicKey String?
+  biometricType      String?
+  biometricEnabled   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  shop          Shop?
+  refreshTokens RefreshToken[]
+
+  @@index([phone])
+}
+
+model Shop {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                 String
+  address              String?
+  latitude             Float?
+  longitude            Float?
+  categories           String[] @default([])
+  tier                 String   @default("trader")
+  defaultProfitMargin  Int      @default(25)
+  notificationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  products             Product[]
+  sales                Sale[]
+  purchaseEntries      PurchaseEntry[]
+  subscriptionUpgrades SubscriptionUpgrade[]
+  processedMutations   ProcessedMutation[]
+
+  @@index([userId])
+}
+
+model OtpSession {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String   @default("register") // "register" | "login"
+  channel   String   @default("sms")      // "sms" | "whatsapp"
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+model RegistrationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  phone     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  deviceId  String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  shopId       String
+  shop         Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  category     String    @default("General")
+  categoryIcon String?   @default("📦")
+  sku          String?
+  barcode      String?
+  stock        Int       @default(0)
+  costPrice    Decimal   @default(0) @db.Decimal(14, 2)
+  sellingPrice Decimal   @default(0) @db.Decimal(14, 2)
+  status       String    @default("good") // "good" | "low" | "sold_out"
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs       ProductAuditLog[]
+  purchaseEntries PurchaseEntry[]
+  saleItems       SaleItem[]
+  returnItems     SaleReturnItem[]
+
+  @@index([shopId])
+  @@index([shopId, category])
+  @@index([barcode])
+  @@index([sku])
+}
+
+model ProductAuditLog {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  previousStock Int
+  newStock      Int
+  difference    Int
+  reason        String
+  reasonLabel   String
+  notes         String?
+  performedBy   String   @default("Shop Owner")
+  createdAt     DateTime @default(now())
+
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model PurchaseEntry {
+  id            String   @id @default(cuid())
+  shopId        String
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productName   String
+  categoryIcon  String?
+  quantityAdded Int
+  unitCost      Decimal  @db.Decimal(14, 2)
+  totalCost     Decimal  @db.Decimal(14, 2)
+  sellingPrice  Decimal  @db.Decimal(14, 2)
+  supplierName  String?
+  timeLabel     String?
+  statusBadge   String?  @default("Just added")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([productId])
+  @@index([createdAt])
+}
+
+model CatalogProduct {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
+  category             String?
+  categoryIcon         String?
+  barcode              String?
+  externalCode         String?
+  suggestedRetailPrice Decimal? @db.Decimal(14, 2)
+  suggestedCostPrice   Decimal? @db.Decimal(14, 2)
+  source               String   @default("imported_csv")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([barcode])
+  @@index([name])
+}
+
+model Sale {
+  id                  String   @id @default(cuid())
+  shopId              String
+  shop                Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  receiptNumber       String   @unique
+  itemCount           Int      @default(0)
+  itemsSummary        String?
+  subtotal            Decimal  @db.Decimal(14, 2)
+  discountType        String?  // "flat" | "percent"
+  discountValue       Decimal? @db.Decimal(14, 2)
+  discountAmount      Decimal  @default(0) @db.Decimal(14, 2)
+  amount              Decimal  @db.Decimal(14, 2)
+  profit              Decimal  @db.Decimal(14, 2)
+  paymentMethod       String   // "Cash" | "Bank Transfer" | "Cash + Transfer" | "Credit / Owings"
+  paymentStatus       String   @default("paid") // "paid" | "partial" | "debt" | "returned"
+  cashGiven           Decimal  @default(0) @db.Decimal(14, 2)
+  change              Decimal  @default(0) @db.Decimal(14, 2)
+  transferAmount      Decimal  @default(0) @db.Decimal(14, 2)
+  transferReference   String?
+  isCreditSale        Boolean  @default(false)
+  amountPaid          Decimal  @default(0) @db.Decimal(14, 2)
+  amountOwed          Decimal  @default(0) @db.Decimal(14, 2)
+  hasDebt             Boolean  @default(false)
+  customerName        String?
+  customerPhone       String?
+  dueDate             String?
+  debtNotes           String?
+  lastReminderSentAt  DateTime?
+  receiptShareMessage String?
+  idempotencyKey      String?  @unique
+  createdOffline      Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  items          SaleItem[]
+  debtRepayments DebtRepayment[]
+  returns        SaleReturn[]
+
+  @@index([shopId])
+  @@index([createdAt])
+  @@index([paymentStatus])
+  @@index([hasDebt])
+}
+
+model SaleItem {
+  id               String   @id @default(cuid())
+  saleId           String
+  sale             Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId        String?
+  product          Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name             String
+  categoryIcon     String?
+  quantity         Int
+  salePrice        Decimal  @db.Decimal(14, 2)
+  costPrice        Decimal  @db.Decimal(14, 2)
+  lineTotal        Decimal  @db.Decimal(14, 2)
+  quantityRefunded Int      @default(0)
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model DebtRepayment {
+  id             String   @id @default(cuid())
+  saleId         String
+  sale           Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount         Decimal  @db.Decimal(14, 2)
+  method         String   // "Cash" | "Bank Transfer"
+  note           String?
+  idempotencyKey String?
+  createdAt      DateTime @default(now())
+
+  @@index([saleId])
+}
+
+model SaleReturn {
+  id                   String   @id @default(cuid())
+  saleId               String
+  sale                 Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  totalRefund          Decimal  @db.Decimal(14, 2)
+  returnReason         String
+  restockToInventory   Boolean  @default(true)
+  refundReceiptMessage String?
+  createdAt            DateTime @default(now())
+
+  items SaleReturnItem[]
+
+  @@index([saleId])
+}
+
+model SaleReturnItem {
+  id           String      @id @default(cuid())
+  returnId     String
+  return       SaleReturn  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name         String
+  quantity     Int
+  refundAmount Decimal     @db.Decimal(14, 2)
+
+  @@index([returnId])
+}
+
+model SubscriptionUpgrade {
+  id               String   @id @default(cuid())
+  shopId           String
+  shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  reference        String   @unique
+  targetTier       String
+  billingPeriod    String
+  amount           Decimal  @db.Decimal(14, 2)
+  currency         String   @default("NGN")
+  status           String   @default("pending")
+  authorizationUrl String?
+  planName         String?
+  createdAt        DateTime @default(now())
+
+  @@index([shopId])
+}
+
+model ProcessedMutation {
+  id             String   @id @default(cuid())
+  shopId         String
+  shop           Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  mutationId     String   @unique
+  type           String
+  serverEntityId String
+  status         String   @default("applied")
+  createdAt      DateTime @default(now())
+
+  @@index([shopId])
+}
+
+model IdempotencyRecord {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  statusCode   Int
+  responseBody Json
+  createdAt    DateTime @default(now())
+
+  @@index([key])
+}

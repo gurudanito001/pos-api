@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const inventoryController_js_1 = require("../controllers/inventoryController.js");
+const auth_js_1 = require("../middleware/auth.js");
+const idempotency_js_1 = require("../middleware/idempotency.js");
+const router = (0, express_1.Router)();
+router.use(auth_js_1.requireAuth);
+router.get('/products', inventoryController_js_1.listInventoryProducts);
+router.get('/products/:id', inventoryController_js_1.getProductDetails);
+router.put('/products/:id', inventoryController_js_1.updateProductDetails);
+router.patch('/products/:id/price', inventoryController_js_1.updateProductPrice);
+router.post('/products/:id/audit', idempotency_js_1.handleIdempotency, inventoryController_js_1.auditProductStock);
+router.get('/low-stock', inventoryController_js_1.getLowStockAlerts);
+exports.default = router;

@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const shopController_js_1 = require("../controllers/shopController.js");
+const auth_js_1 = require("../middleware/auth.js");
+const router = (0, express_1.Router)();
+router.use(auth_js_1.requireAuth);
+router.get('/profile', shopController_js_1.getShopProfile);
+router.put('/profile', shopController_js_1.updateShopProfile);
+router.patch('/preferences', shopController_js_1.updatePreferences);
+exports.default = router;

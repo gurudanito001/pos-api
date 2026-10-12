@@ -1,0 +1,46 @@
+{
+  "name": "pos_api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "build/app.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "npx tsc -p .",
+    "start": "node .",
+    "dev": "tsx watch src/app.ts",
+    "test": "tsx src/testEndpoints.ts",
+    "seed": "tsx src/prisma/seed.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^8.5.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.9.3",
+    "@types/pg": "^8.20.0",
+    "@types/swagger-ui-express": "^4.1.8",
+    "prisma": "^7.8.0",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3"
+  }
+}
