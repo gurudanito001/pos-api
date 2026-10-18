@@ -37,6 +37,15 @@ export const apiSpec = {
     { name: 'Subscription', description: 'Paystack plan upgrade initialization and tier management' },
     { name: 'Offline Sync', description: 'Background batch synchronization and conflict resolution for market dead-zones' },
     { name: 'Health', description: 'API uptime and system health verification' },
+    { name: 'Admin - Overview & Feed', description: 'Platform-wide analytics, GMV totals, and real-time activity feed' },
+    { name: 'Admin - Users & OTP', description: 'Inspect registered users, OTP codes (for testing onboarding), and active device sessions' },
+    { name: 'Admin - Shops', description: 'Inspect, manage, and override shop profiles and subscription tiers' },
+    { name: 'Admin - Inventory & Audits', description: 'Inspect products across all shops, immutable audit logs, and stock purchase entries' },
+    { name: 'Admin - Sales & Returns', description: 'Inspect all sales platform-wide, line items, and customer returns' },
+    { name: 'Admin - Debts', description: 'Global customer debts ledger and debt repayments trail' },
+    { name: 'Admin - Offline Sync', description: 'Inspect background queued mutations and idempotency records' },
+    { name: 'Admin - FMCG Catalog', description: 'Inspect and add to master FMCG Nigerian barcode database' },
+    { name: 'Admin - Subscriptions', description: 'Inspect plan upgrade transactions' },
   ],
   components: {
     securitySchemes: {
@@ -51,6 +60,12 @@ export const apiSpec = {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         description: 'Temporary registration token obtained from `/auth/otp/verify` for new users',
+      },
+      AdminKeyAuth: {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-Admin-Key',
+        description: 'Admin Secret Key (configured in .env as ADMIN_API_KEY)',
       },
     },
     parameters: {
@@ -2070,6 +2085,391 @@ export const apiSpec = {
               },
             },
           },
+        },
+      },
+    },
+
+    // ------------------------------------------------------------------------
+    // MODULE 12: ADMIN INSPECTOR & MANAGEMENT ENDPOINTS
+    // ------------------------------------------------------------------------
+    '/admin/overview': {
+      get: {
+        tags: ['Admin - Overview & Feed'],
+        summary: 'Get Platform Overview & Totals',
+        description: 'Returns platform-wide totals across all tables: shops, users, GMV, profit, products, sales, and debt.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Platform metrics retrieved successfully',
+          },
+        },
+      },
+    },
+
+    '/admin/activity-feed': {
+      get: {
+        tags: ['Admin - Overview & Feed'],
+        summary: 'Get Real-Time Chronological Activity Feed',
+        description: 'Returns a unified chronological feed of recent platform events (sales, stock-ins, repayments, recounts, offline syncs, OTPs).',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+        ],
+        responses: {
+          200: { description: 'Activity feed retrieved' },
+        },
+      },
+    },
+
+    '/admin/otp-sessions': {
+      get: {
+        tags: ['Admin - Users & OTP'],
+        summary: 'List OTP Sessions & Generated Codes',
+        description: 'Lists all generated OTP verification codes and statuses. Allows testing onboarding flows without needing real SMS credits.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 30 } },
+          { name: 'phone', in: 'query', required: false, schema: { type: 'string', example: '08031234567' } },
+        ],
+        responses: {
+          200: { description: 'OTP sessions retrieved' },
+        },
+      },
+    },
+
+    '/admin/users': {
+      get: {
+        tags: ['Admin - Users & OTP'],
+        summary: 'List All Registered Users',
+        description: 'Returns all registered users with their phone numbers, plan tiers, and linked shop info.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 30 } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'tier', in: 'query', required: false, schema: { type: 'string', enum: ['trader', 'medium_scale', 'enterprise'] } },
+        ],
+        responses: {
+          200: { description: 'Users list retrieved' },
+        },
+      },
+    },
+
+    '/admin/users/{id}': {
+      get: {
+        tags: ['Admin - Users & OTP'],
+        summary: 'Get User Details & Device Sessions',
+        description: 'Deep dive into a specific user: active refresh tokens, registered biometrics (Face ID / Fingerprint), and shop info.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', example: 'usr_9410294' } },
+        ],
+        responses: {
+          200: { description: 'User details retrieved' },
+        },
+      },
+    },
+
+    '/admin/shops': {
+      get: {
+        tags: ['Admin - Shops'],
+        summary: 'List All Registered Shops',
+        description: 'Returns all shops with owner phone numbers, product counts, and sale totals.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 30 } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'tier', in: 'query', required: false, schema: { type: 'string', enum: ['trader', 'medium_scale', 'enterprise'] } },
+        ],
+        responses: {
+          200: { description: 'Shops list retrieved' },
+        },
+      },
+    },
+
+    '/admin/shops/{id}': {
+      get: {
+        tags: ['Admin - Shops'],
+        summary: 'Get Shop Full Audit',
+        description: 'Full shop audit: lifetime GMV, collected cash, outstanding debts, recent products, and recent sales.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', example: 'shp_819203' } },
+        ],
+        responses: {
+          200: { description: 'Shop details retrieved' },
+        },
+      },
+      patch: {
+        tags: ['Admin - Shops'],
+        summary: 'Update Shop Details or Tier Override',
+        description: 'Allows an administrator to directly update a shop tier, name, address, or margin targets.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', example: 'shp_819203' } },
+        ],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  address: { type: 'string' },
+                  tier: { type: 'string', enum: ['trader', 'medium_scale', 'enterprise'] },
+                  defaultProfitMargin: { type: 'integer' },
+                  notificationsEnabled: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Shop updated' },
+        },
+      },
+    },
+
+    '/admin/inventory/products': {
+      get: {
+        tags: ['Admin - Inventory & Audits'],
+        summary: 'List All Products Platform-Wide',
+        description: 'Inspect products across any or all shops, stock counts, cost prices, selling prices, and statuses.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'category', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'status', in: 'query', required: false, schema: { type: 'string', enum: ['all', 'good', 'low', 'sold_out'] } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Products retrieved' },
+        },
+      },
+    },
+
+    '/admin/inventory/audit-logs': {
+      get: {
+        tags: ['Admin - Inventory & Audits'],
+        summary: 'List All Physical Count Audit Logs',
+        description: 'Inspect immutable shelf audit entries (stolen/missing, damage, recounts) across all shops.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'productId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'reason', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Audit logs retrieved' },
+        },
+      },
+    },
+
+    '/admin/stock-in/entries': {
+      get: {
+        tags: ['Admin - Inventory & Audits'],
+        summary: 'List All Stock Intake Purchase Entries',
+        description: 'Inspect wholesale intake history, supplier names, unit costs, and total costs across shops.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Purchase entries retrieved' },
+        },
+      },
+    },
+
+    '/admin/sales': {
+      get: {
+        tags: ['Admin - Sales & Returns'],
+        summary: 'List All Sales Platform-Wide',
+        description: 'Inspect sales across all shops with payment method breakdown, items summary, and debts.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'paymentStatus', in: 'query', required: false, schema: { type: 'string', enum: ['paid', 'partial', 'debt', 'returned'] } },
+          { name: 'paymentMethod', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Sales retrieved' },
+        },
+      },
+    },
+
+    '/admin/sales/{id}': {
+      get: {
+        tags: ['Admin - Sales & Returns'],
+        summary: 'Get Specific Sale Audit Details',
+        description: 'Complete transaction inspection: line items, debt repayment history, and refund records.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', example: 'sale_101' } },
+        ],
+        responses: {
+          200: { description: 'Sale details retrieved' },
+        },
+      },
+    },
+
+    '/admin/returns': {
+      get: {
+        tags: ['Admin - Sales & Returns'],
+        summary: 'List All Processed Customer Returns',
+        description: 'Inspect return reasons, refunded amounts, and restocking records across all shops.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+        ],
+        responses: {
+          200: { description: 'Returns retrieved' },
+        },
+      },
+    },
+
+    '/admin/debts': {
+      get: {
+        tags: ['Admin - Debts'],
+        summary: 'Global Customer Debts Ledger',
+        description: 'List all outstanding credit sales across all shops, customer names, phones, due dates, and balances.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Debts ledger retrieved' },
+        },
+      },
+    },
+
+    '/admin/debts/repayments': {
+      get: {
+        tags: ['Admin - Debts'],
+        summary: 'List All Debt Repayments',
+        description: 'Full log of all incremental debt repayments with timestamps, payment methods, and notes.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Repayments retrieved' },
+        },
+      },
+    },
+
+    '/admin/sync/mutations': {
+      get: {
+        tags: ['Admin - Offline Sync'],
+        summary: 'List Offline Batch Synced Mutations',
+        description: 'Inspect all background queued mutations from the mobile app (mutation UUIDs, types, server entity IDs, status).',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'type', in: 'query', required: false, schema: { type: 'string', enum: ['CREATE_SALE', 'STOCK_IN', 'RECORD_DEBT_REPAYMENT'] } },
+        ],
+        responses: {
+          200: { description: 'Mutations list retrieved' },
+        },
+      },
+    },
+
+    '/admin/sync/idempotency-records': {
+      get: {
+        tags: ['Admin - Offline Sync'],
+        summary: 'List Cached Idempotency Records',
+        description: 'Inspect cached idempotency keys to verify network retry deduplication.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Idempotency records retrieved' },
+        },
+      },
+    },
+
+    '/admin/catalog': {
+      get: {
+        tags: ['Admin - FMCG Catalog'],
+        summary: 'List Master FMCG Barcode Catalog',
+        description: 'Inspect the master FMCG Nigerian consumer goods database with barcodes and suggested prices.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'barcode', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Catalog items retrieved' },
+        },
+      },
+      post: {
+        tags: ['Admin - FMCG Catalog'],
+        summary: 'Add Product to Master FMCG Catalog',
+        description: 'Add a new packaged Nigerian consumer product and barcode to the global master catalog.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', example: 'Indomie Instant Noodles Hungryman Size 180g' },
+                  description: { type: 'string', example: 'Onion Chicken Flavour' },
+                  category: { type: 'string', example: 'Food & Groceries' },
+                  categoryIcon: { type: 'string', example: '🍜' },
+                  barcode: { type: 'string', example: '8901020304088' },
+                  externalCode: { type: 'string', example: 'indomie_180g' },
+                  suggestedRetailPrice: { type: 'number', example: 550 },
+                  suggestedCostPrice: { type: 'number', example: 480 },
+                },
+                required: ['name'],
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Product added to master catalog' },
+        },
+      },
+    },
+
+    '/admin/subscriptions': {
+      get: {
+        tags: ['Admin - Subscriptions'],
+        summary: 'List All Subscription Upgrade Transactions',
+        description: 'Inspect all Paystack plan upgrade attempts, references, billing periods, and statuses.',
+        security: [{ AdminKeyAuth: [] }, { BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', required: false, schema: { type: 'integer', default: 50 } },
+          { name: 'status', in: 'query', required: false, schema: { type: 'string', enum: ['pending', 'active', 'failed'] } },
+        ],
+        responses: {
+          200: { description: 'Subscriptions retrieved' },
         },
       },
     },

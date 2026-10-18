@@ -16,6 +16,7 @@ import shopRouter from './routes/shop.js';
 import placesRouter from './routes/places.js';
 import subscriptionsRouter from './routes/subscriptions.js';
 import syncRouter from './routes/sync.js';
+import adminRouter from './routes/admin.js';
 
 import notFound from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
@@ -80,6 +81,7 @@ apiRouter.use('/shop', shopRouter);
 apiRouter.use('/places', placesRouter);
 apiRouter.use('/subscription', subscriptionsRouter);
 apiRouter.use('/sync', syncRouter);
+apiRouter.use('/admin', adminRouter);
 
 // Mount router under both '/v1' and root '/'
 app.use('/v1', apiRouter);
