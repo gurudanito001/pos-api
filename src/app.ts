@@ -20,6 +20,7 @@ import adminRouter from './routes/admin.js';
 
 import notFound from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
+import requestLogger from './middleware/requestLogger.js';
 import { apiSpec } from './lib/openapi.js';
 
 dotenv.config();
@@ -43,6 +44,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Request-Id', reqId);
   next();
 });
+
+// Rich request & response route logger
+app.use(requestLogger);
 
 // Swagger JSON Spec Handlers (supports multiple URL patterns for mobile & frontend clients)
 const serveDocsJson = (_req: express.Request, res: express.Response) => {

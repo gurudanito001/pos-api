@@ -14,6 +14,7 @@ export async function handleIdempotency(req: Request, res: Response, next: NextF
     });
 
     if (existing) {
+      (res as any).idempotencyHit = true;
       return res.status(existing.statusCode).json(existing.responseBody);
     }
 
